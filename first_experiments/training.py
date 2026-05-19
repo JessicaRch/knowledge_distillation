@@ -1,3 +1,4 @@
+import torch
 class Trainer:
     
     def __init__(self, model, config):
@@ -23,6 +24,31 @@ class Trainer:
 
         return running_loss / len(dataloader.dataset)
 
+    def train_student(self, teacher, dataloader, T=1.0, c=0.5):
+
+        self.model.train() # student is being trained
+        teacher.eval()  # Teacher is fixed
+        running_loss = 0.0
+
+        for data, target in dataloader:
+            data, target = data.to(self.device), target.to(self.device)
+            self.optimizer.zero_grad()
+            with torch.no_grad():
+                teacher_logits = teacher(data)  # Get teacher's output
+            
+            student_logits = self.model(data)  # Get student's output
+            teacher_soft = torch.nn.functional.softmax(teacher_logits.detach() / T, dim=-1)
+            student_soft = torch.nn.functional.log_softmax(student_logits / T, dim=-1)
+            
+            L_soft = torch.nn.functional.kl_div(student_soft, teacher_soft, reduction='batchmean')  # KL divergence
+            L_hard = self.criterion(student_logits, target)  # CE normal
+            loss = (1-c) * T**2 *  L_soft + c * L_hard  # Combine losses
+            loss.backward()
+            self.optimizer.step()
+
+            running_loss += loss.item() * data.size(0)
+
+        return running_loss / len(dataloader.dataset)
 
 if __name__ == '__main__':
     # main.py
