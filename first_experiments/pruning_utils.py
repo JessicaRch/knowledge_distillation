@@ -21,20 +21,6 @@ e_ortho = 0.01 # value for consider two vectors epsilon-orthogonal (for pruning)
 # Gradient & neuron utility functions
 # ----------------------------
 
-def collect_prunable_layer_gradients(results, max_layers=None):
-    layers_name = [key for key in results[0]['grads'].keys() if 'weight' in key]
-    sorted_layers_name = sorted(
-        layers_name,
-        key=lambda s: int(re.search(r"\d+", s).group())
-    )
-    pred_label = torch.cat([res['pred_labels'] for res in results], dim=0)
-
-    layer_grads = {}
-    for layer_name in sorted_layers_name[:-1]:
-        grads = torch.cat([res['grads'][layer_name] for res in results], dim=0)
-        layer_grads[layer_name] = grads
-
-    return sorted_layers_name, pred_label, layer_grads
 
 def sort_indexes(pred_labels):
     return torch.argsort(pred_labels, descending=False)
