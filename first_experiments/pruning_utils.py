@@ -8,7 +8,7 @@ import re
 import os
 import numpy as np
 from sklearn.metrics.pairwise import cosine_similarity as sk_cosine_similarity
-import cupy as cp
+# import cupy as cp
 import h5py
 from DSU import getComponents
 
