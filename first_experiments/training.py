@@ -6,6 +6,11 @@ class Trainer:
         self.optimizer = config['optimizer'](model.parameters(), lr=config['lr'])
         self.criterion = config['criterion']
         self.device = next(model.parameters()).device
+        sched_config = config.get('scheduler', None)
+        if sched_config:
+            self.scheduler = sched_config['type'](self.optimizer, **sched_config['params'])
+        else:
+            self.scheduler = None
 
     def train_epoch(self, dataloader):
         
@@ -22,6 +27,10 @@ class Trainer:
 
             running_loss += loss.item() * data.size(0)
 
+        if self.scheduler is not None:
+            epoch_loss = running_loss / len(dataloader.dataset)
+            self.scheduler.step(epoch_loss)  # ← atualiza o LR
+            return epoch_loss
         return running_loss / len(dataloader.dataset)
 
     def train_student(self, teacher, dataloader, T=1.0, c=0.5):
