@@ -21,3 +21,22 @@ class Evaluator:
                 correct += (preds == y).sum().item()
 
         return correct / total
+
+    def mse(self, dataloader):
+        self.model.eval()
+
+        total_loss = 0.0
+        total_samples = 0
+        device = next(self.model.parameters()).device
+
+        with torch.no_grad():
+            for x, y in dataloader:
+                x, y = x.to(device), y.to(device)
+
+                logits = self.model(x)
+                loss = torch.nn.functional.mse_loss(logits.squeeze(), y, reduction='sum')
+
+                total_loss += loss.item()
+                total_samples += y.size(0)
+
+        return total_loss / total_samples
