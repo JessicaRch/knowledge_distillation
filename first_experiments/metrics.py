@@ -33,8 +33,8 @@ class Evaluator:
             for x, y in dataloader:
                 x, y = x.to(device), y.to(device)
 
-                logits = self.model(x)
-                loss = torch.nn.functional.mse_loss(logits.squeeze(), y, reduction='sum')
+                output = self.model(x)
+                loss = torch.nn.functional.mse_loss(output, y, reduction='sum')
 
                 total_loss += loss.item()
                 total_samples += y.size(0)
