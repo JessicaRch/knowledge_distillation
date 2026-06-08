@@ -17,16 +17,19 @@ class Trainer:
         self.model.train()
         running_loss = 0.0
 
-        for data, target in dataloader:
+        for batch_idx, (data, target) in enumerate(dataloader):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
+            assert output.dim() == target.dim(), f"Dimension mismatch: output {output.shape} vs target {target.shape}"
+            # target = target.unsqueeze(1) if output.dim() > target.dim() else target # Ensure target is (batch_size, 1) for regression
             loss = self.criterion(output, target)
             loss.backward()
             self.optimizer.step()
 
             running_loss += loss.item() * data.size(0)
-
+        
+            avg_loss = running_loss / ((batch_idx + 1) * data.size(0))
         if self.scheduler is not None:
             epoch_loss = running_loss / len(dataloader.dataset)
             self.scheduler.step(epoch_loss)  # ← atualiza o LR
@@ -45,12 +48,14 @@ class Trainer:
             with torch.no_grad():
                 teacher_logits = teacher(data)  # Get teacher's output
             
-            student_logits = self.model(data)  # Get student's output
+            student_output = self.model(data)  # Get student's output
             teacher_soft = torch.nn.functional.softmax(teacher_logits.detach() / T, dim=-1)
-            student_soft = torch.nn.functional.log_softmax(student_logits / T, dim=-1)
+            student_soft = torch.nn.functional.log_softmax(student_output / T, dim=-1)
             
             L_soft = torch.nn.functional.kl_div(student_soft, teacher_soft, reduction='batchmean')  # KL divergence
-            L_hard = self.criterion(student_logits, target)  # CE normal
+            assert student_output.dim() == target.dim(), f"Dimension mismatch: output {student_output.shape} vs target {target.shape}"
+
+            L_hard = self.criterion(student_output, target)  # CE normal
             loss = (1-c) * T**2 *  L_soft + c * L_hard  # Combine losses
             loss.backward()
             self.optimizer.step()
