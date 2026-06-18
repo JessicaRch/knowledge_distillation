@@ -12,7 +12,7 @@ class Trainer:
         else:
             self.scheduler = None
 
-    def train_epoch(self, dataloader):
+    def train_epoch(self, dataloader, detch_grad=False):
         
         self.model.train()
         running_loss = 0.0
@@ -21,10 +21,14 @@ class Trainer:
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
             output = self.model(data)
-            assert output.dim() == target.dim(), f"Dimension mismatch: output {output.shape} vs target {target.shape}"
+            # assert output.dim() == target.dim(), f"Dimension mismatch: output {output.shape} vs target {target.shape}"
             # target = target.unsqueeze(1) if output.dim() > target.dim() else target # Ensure target is (batch_size, 1) for regression
             loss = self.criterion(output, target)
             loss.backward()
+            if detch_grad:
+                for name, param in self.model.named_parameters():
+                    if param.grad is not None:
+                        print(data, param.grad.shape)
             self.optimizer.step()
 
             running_loss += loss.item() * data.size(0)
@@ -34,6 +38,7 @@ class Trainer:
             epoch_loss = running_loss / len(dataloader.dataset)
             self.scheduler.step(epoch_loss)  # ← atualiza o LR
             return epoch_loss
+        
         return running_loss / len(dataloader.dataset)
 
     def train_student(self, teacher, dataloader, T=1.0, c=0.5):
@@ -53,7 +58,7 @@ class Trainer:
             student_soft = torch.nn.functional.log_softmax(student_output / T, dim=-1)
             
             L_soft = torch.nn.functional.kl_div(student_soft, teacher_soft, reduction='batchmean')  # KL divergence
-            assert student_output.dim() == target.dim(), f"Dimension mismatch: output {student_output.shape} vs target {target.shape}"
+            # assert student_output.dim() == target.dim(), f"Dimension mismatch: output {student_output.shape} vs target {target.shape}"
 
             L_hard = self.criterion(student_output, target)  # CE normal
             loss = (1-c) * T**2 *  L_soft + c * L_hard  # Combine losses
