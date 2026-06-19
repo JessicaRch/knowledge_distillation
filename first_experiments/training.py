@@ -17,6 +17,11 @@ class Trainer:
         self.model.train()
         running_loss = 0.0
 
+        grad_monitor = {
+            'grads': {},
+            'targets': [],
+            'outputs': []
+        }
         for batch_idx, (data, target) in enumerate(dataloader):
             data, target = data.to(self.device), target.to(self.device)
             self.optimizer.zero_grad()
@@ -26,9 +31,14 @@ class Trainer:
             loss = self.criterion(output, target)
             loss.backward()
             if detch_grad:
-                for name, param in self.model.named_parameters():
+                grad_monitor['targets'].append(target.detach().cpu().clone())
+                grad_monitor['outputs'].append(output.argmax(dim=1).detach().cpu().clone())
+                for layer, param in self.model.named_parameters():
+                    if layer not in grad_monitor['grads']:
+                        grad_monitor['grads'][layer] = []
                     if param.grad is not None:
-                        print(data, param.grad.shape)
+                        grad_monitor['grads'][layer].append(param.grad.detach().cpu().clone())
+
             self.optimizer.step()
 
             running_loss += loss.item() * data.size(0)
@@ -39,7 +49,11 @@ class Trainer:
             self.scheduler.step(epoch_loss)  # ← atualiza o LR
             return epoch_loss
         
+        if detch_grad:
+            return running_loss / len(dataloader.dataset), grad_monitor
+        
         return running_loss / len(dataloader.dataset)
+
 
     def train_student(self, teacher, dataloader, T=1.0, c=0.5):
 
